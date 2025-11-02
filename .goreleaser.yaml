@@ -63,7 +63,7 @@ dockers_v2:
       - linux/arm64
 
   - id: tos-noregex-docker
-    dockerfile: Dockerfile
+    dockerfile: Dockerfile-noregex
     ids:
       - tos-build
     images:
