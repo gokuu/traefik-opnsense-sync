@@ -16,7 +16,7 @@ if __name__ == '__main__':
 EOF
 
 
-# stage 3: final minimal image (not using scrarch due to exrex python dependency)
+# stage 2: final minimal image (not using scrarch due to exrex python dependency)
 FROM gcr.io/distroless/python3-debian12:nonroot AS final
 ARG TARGETPLATFORM
 
