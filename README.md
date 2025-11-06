@@ -208,7 +208,7 @@ Correctly configured OPNsense Unbound might look like:
 <details>
 <summary>Click to expand screenshot</summary>
 
-![OPNsense Unbound Example](https://i.imgur.com/5yYsm7z.png)
+![OPNsense Unbound Example](assets/unbound-base-settings-example.png)
 
 </details>
 
