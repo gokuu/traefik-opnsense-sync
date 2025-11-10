@@ -36,17 +36,17 @@ type regexCfg struct {
 	ExrexPath    string `mapstructure:"exrex_path"`
 }
 
-type reconcileCfg struct {
+type syncCfg struct {
 	Interval       time.Duration `mapstructure:"interval"`
 	DescriptionTag string        `mapstructure:"description_tag"`
+	DryRun         bool          `mapstructure:"dry_run"`
 }
 
 type Config struct {
-	DryRun    bool         `mapstructure:"dry_run"`
-	Traefik   traefikCfg   `mapstructure:"traefik"`
-	OPNsense  opnSenseCfg  `mapstructure:"opnsense"`
-	Regex     regexCfg     `mapstructure:"regex"`
-	Reconcile reconcileCfg `mapstructure:"reconcile"`
+	Traefik  traefikCfg  `mapstructure:"traefik"`
+	OPNsense opnSenseCfg `mapstructure:"opnsense"`
+	Regex    regexCfg    `mapstructure:"regex"`
+	Sync     syncCfg     `mapstructure:"sync"`
 }
 
 func LoadConfig() (Config, error) {
@@ -98,9 +98,6 @@ func LoadConfig() (Config, error) {
 }
 
 func setDefaults(v *viper.Viper) {
-	// top
-	v.SetDefault("dry_run", false)
-
 	// Traefik
 	v.SetDefault("traefik.verify_tls", true)
 
@@ -111,9 +108,10 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("regex.max_generated", 5)
 	v.SetDefault("regex.exrex_path", "exrex")
 
-	// reconcile
-	v.SetDefault("reconcile.interval", "30s")
-	v.SetDefault("reconcile.description_tag", "Managed by traefik-opnsense-sync")
+	// sync
+	v.SetDefault("sync.dry_run", false)
+	v.SetDefault("sync.interval", "30s")
+	v.SetDefault("sync.description_tag", "Managed by traefik-opnsense-sync")
 }
 
 // read TOS_*_FILE envs and set the corresponding TOS_* env with the file contents
@@ -179,16 +177,16 @@ func validate(config *Config) error {
 	if strings.TrimSpace(config.OPNsense.HostOverride) == "" {
 		errs = append(errs, "opnsense.host_override is required")
 	}
-	if strings.TrimSpace(config.Reconcile.DescriptionTag) == "" {
-		errs = append(errs, "reconcile.description_tag is required")
+	if strings.TrimSpace(config.Sync.DescriptionTag) == "" {
+		errs = append(errs, "sync.description_tag is required")
 	}
 
 	// guardrails
 	if config.Regex.MaxGenerated <= 0 {
 		errs = append(errs, "regex.max_generated must be > 0")
 	}
-	if config.Reconcile.Interval <= 0 {
-		errs = append(errs, "reconcile.interval must be > 0")
+	if config.Sync.Interval <= 0 {
+		errs = append(errs, "sync.interval must be > 0")
 	}
 	if err := validateIgnoreRouters(config.Traefik.IgnoreRouters); err != nil {
 		errs = append(errs, err.Error())

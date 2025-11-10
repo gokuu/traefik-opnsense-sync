@@ -19,7 +19,7 @@ func NewApp(cfg *config.Config) *App {
 	return &App{
 		cfg:      cfg,
 		runner:   syncer.NewRunner(cfg),
-		interval: cfg.Reconcile.Interval,
+		interval: cfg.Sync.Interval,
 	}
 }
 
@@ -28,14 +28,14 @@ func (a *App) Run(ctx context.Context) error {
 
 	// initial sync
 	if err := a.syncOnce(ctx); err != nil {
-		if a.cfg.DryRun {
+		if a.cfg.Sync.DryRun {
 			return err
 		}
 		log.Printf("sync error: %v", err)
 	}
 
 	// dry-run: do not start ticker
-	if a.cfg.DryRun {
+	if a.cfg.Sync.DryRun {
 		log.Println("dry-run enabled; executed a single sync and exiting")
 		return nil
 	}

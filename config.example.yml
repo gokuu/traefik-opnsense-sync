@@ -7,9 +7,9 @@
 #
 # Environment variables:
 #   - Key mapping: dots become underscores. For example:
-#       traefik.base_url          → TOS_TRAEFIK_BASE_URL
-#       opnsense.api_secret       → TOS_OPNSENSE_API_SECRET
-#       reconcile.description_tag → TOS_RECONCILE_DESCRIPTION_TAG
+#       traefik.base_url     → TOS_TRAEFIK_BASE_URL
+#       opnsense.api_secret  → TOS_OPNSENSE_API_SECRET
+#       sync.description_tag → TOS_SYNC_DESCRIPTION_TAG
 #   - Arrays: may be given as CSV in env, e.g.:
 #       TOS_TRAEFIK_INCLUDE_ENTRYPOINTS="web,websecure"
 #   - *_FILE secrets: if TOS_XXX_FILE is set, its file contents are read and exported as TOS_XXX
@@ -23,9 +23,6 @@
 # ==============================================================================
 
 # Config Starts Here
-
-# Optional. Default: false
-dry_run: false
 
 traefik:
   # REQUIRED (no default): Base URL to Traefik API
@@ -63,7 +60,7 @@ traefik:
   # username: ""
   # password: ""
 
-  # Optional: verify TLS when base_url
+  # Optional: verify TLS when connecting to Traefik
   # (default: true)
   # verify_tls: false
 
@@ -83,7 +80,7 @@ opnsense:
   # See README for more details and instructions
   host_override: "reverse-proxy.mydomain.com"
 
-  # Optional: verify TLS when base_url
+  # Optional: verify TLS when connecting to OPNsense
   # (default: true)
   # verify_tls: false
 
@@ -96,11 +93,15 @@ regex:
 # (default: "exrex")
 # exrex_path: "/home/user/exrex/exrex"
 
-reconcile:
+sync:
+# Optional: dry run mode. If true, changes are logged but not applied to OPNsense
+# (default: false)
+# dry_run: true
+
 # Optional: sync interval. Must be > 0.
 # (default: "30s")
 # interval: "1m"
 
 # Optional: string written into OPNsense alias descriptions for traceability
-# Default: "Managed by traefik-opnsense-sync"
+# (default: "Managed by traefik-opnsense-sync")
 # description_tag: "DONT TOUCH ME - automatically synced"

@@ -25,7 +25,7 @@ func NewRunner(config *config.Config) *Runner {
 		traefik:      traefik.NewClient(config.Traefik.BaseURL, config.Traefik.VerifyTLS, config.Traefik.Username, config.Traefik.Password),
 		opnsense:     opnsense.NewClient(config.OPNsense.BaseURL, config.OPNsense.VerifyTLS, config.OPNsense.APIKey, config.OPNsense.APISecret),
 		hostOverride: config.OPNsense.HostOverride,
-		dryRun:       config.DryRun,
+		dryRun:       config.Sync.DryRun,
 	}
 }
 

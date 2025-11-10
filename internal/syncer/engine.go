@@ -27,7 +27,7 @@ func newEngine(cfg *config.Config) *Engine {
 		ignoreRouters:      cfg.Traefik.IgnoreRouters,
 		includeProviders:   cfg.Traefik.IncludeProviders,
 		ignoreProviders:    cfg.Traefik.IgnoreProviders,
-		descTag:            cfg.Reconcile.DescriptionTag,
+		descTag:            cfg.Sync.DescriptionTag,
 	}
 }
 
