@@ -20,8 +20,9 @@
 #
 # Durations:
 #   - Use Go duration strings: "30s", "5m", "1h".
+#
 # ==============================================================================
-
+#
 # Config Starts Here
 
 traefik:
@@ -85,23 +86,23 @@ opnsense:
   # verify_tls: false
 
 regex:
-# Optional: maximum number of strings to generate per regex (HostRegexp rules).
-# (default: 5)
-# max_generated: 10
+  # Optional: maximum number of strings to generate per regex (HostRegexp rules).
+  # (default: 5)
+  # max_generated: 10
 
-# Optional: path or executable name for exrex. If "exrex" is in PATH, this is fine.
-# (default: "exrex")
-# exrex_path: "/home/user/exrex/exrex"
+  # Optional: path or executable name for exrex. If "exrex" is in PATH, this is fine.
+  # (default: "exrex")
+  # exrex_path: "/home/user/exrex/exrex"
 
 sync:
-# Optional: dry run mode. If true, changes are logged but not applied to OPNsense
-# (default: false)
-# dry_run: true
+  # Optional: dry run mode. If true, changes are logged but not applied to OPNsense
+  # (default: false)
+  # dry_run: true
 
-# Optional: sync interval. Must be > 0.
-# (default: "30s")
-# interval: "1m"
+  # Optional: sync interval. Must be > 0.
+  # (default: "30s")
+  # interval: "1m"
 
-# Optional: string written into OPNsense alias descriptions for traceability
-# (default: "Managed by traefik-opnsense-sync")
-# description_tag: "DONT TOUCH ME - automatically synced"
+  # Optional: string written into OPNsense alias descriptions for traceability
+  # (default: "Managed by traefik-opnsense-sync")
+  # description_tag: "DONT TOUCH ME - automatically synced"
