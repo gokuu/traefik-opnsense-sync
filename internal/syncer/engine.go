@@ -208,10 +208,10 @@ func (e *Engine) routersToHostAliases(routers []traefik.Router) ([]model.HostAli
 		}
 	}
 
-	for _, domain := range plainDomains {
-		hostname, domain, found := strings.Cut(domain, ".")
+	for _, plainDomain := range plainDomains {
+		hostname, domain, found := strings.Cut(plainDomain, ".")
 		if !found || hostname == "" || domain == "" {
-			log.Println("skipping invalid domain:", domain)
+			log.Println("skipping invalid domain:", plainDomain)
 			continue
 		}
 		aliases = append(aliases, model.HostAlias{
