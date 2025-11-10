@@ -140,7 +140,7 @@ And then we have multiple aliases, e.g. `app.mydomain.com` → `reverse-proxy.my
 
 There are a few things you need to set up once before you can take this application into use
 
-#### OPNsense API Access
+### OPNsense API Access
 
 You need to create an API key + secret with correct permissions to manage Unbound DNS overrides.  
 Quick steps:
@@ -157,7 +157,7 @@ Quick steps:
 
 You can now set the API key + secret to the application configuration.
 
-#### Create Initial Reverse Proxy Host Override
+### Create Initial Reverse Proxy Host Override
 
 As explained in the [Working Principle & Long Explanation](#working-principle--long-explanation) section,
 you need to create one host overrides, to which all the automatically managed override alises will point to.
@@ -173,7 +173,7 @@ Quick steps:
 You should now have a DNS override `reverse-proxy.mydomain.com` → Traefik IP.  
 Set `reverse-proxy.mydomain.com` to the config entry `opnsense.host_override`.
 
-#### Traefik API Access
+### Traefik API Access
 
 If you have
 enabled [insecure access to the Traefik API](https://doc.traefik.io/traefik/reference/install-configuration/api-dashboard/#opt-api-insecure),
@@ -212,20 +212,262 @@ Correctly configured OPNsense Unbound might look like:
 
 </details>
 
+### Exrex installation (for regex rule expansion, for non-docker installs, optional)
+
+> **Only applies to non-docker installs where regex rules (e.g. `HostRegexp(...)`) are used in Traefik!**
+
+To support regex expansion, [`exrex`][exrex-url] needs to be installed and available.
+Exrex is a python package that can expand regexes out to all possible matching strings.
+
+From the perspective of this program, it doesn't matter how you install exrex, as long as it is available either in
+PATH,
+or via a filepath you've set to config entry `regex.exrex_path`.
+
+Easiest way to install exrex is via pip:
+
+```bash
+pip install exrex==0.12.0
+```
+
+Version shouldn't matter as long as a future update doesn't change exrex's CLI interface.
+I can guarantee compatibility with version 0.12.0.
+
 ## Installation & Running
 
-You can either download a pre-built binary from the releases page, build from source, or run via Docker.
+You can either download a pre-built binary matching your OS and architecture from the releases page,
+run via Docker, or build from source.
 
-<further instructions todo, I will create the pipelines and releases first>
+### Pre-Built Binary
+
+Head over to the [releases page][github-release-url] and download the appropriate binary for your system.
+
+You can run the binary directly (after ensuring you have set up configuration correctly,
+see [Configuration](#configuration) section below).
+Although if you plan to use this program as a service that continuously syncs at intervals,
+you probably want to set it up as a systemd service, or equivalent.
+
+### Docker
+
+You can run this application via Docker, either as simple container or via Docker Compose.  
+If you have a special Traefik setup and expose its API only internally within the container network,
+be sure to join this container to the same network, or whatever else is applicable for your setup.
+
+#### Simple Docker Run
+
+You can either specify all config entires as environment variables:  
+(Example config entires below, not exhaustive list, see [Configuration](#configuration) section for all options)
+
+```bash
+docker run \
+    -e TOS_SYNC_DRY_RUN=true \
+    -e TOS_TRAEFIK_BASE_URL=https://traefik.mydomain.com \
+    -e TOS_TRAEFIK_INCLUDE_ENTRYPOINTS=lan-https \
+    -e TOS_TRAEFIK_IGNORE_ROUTERS=traefik-dashboard@file \
+    -e TOS_OPNSENSE_BASE_URL=https://192.168.10.1 \
+    -e TOS_OPNSENSE_API_KEY=mykey \
+    -e TOS_OPNSENSE_API_SECRET=mysecret \
+    -e TOS_OPNSENSE_HOST_OVERRIDE=reverse-proxy.mydomain.com \
+    -e TOS_OPNSENSE_VERIFY_TLS=false \
+    0x464e/traefik-opnsense-sync:latest
+```
+
+or you can mount a config file into the container:
+
+```bash
+docker run \
+    -v /path/to/your/config.yml:/app/config.yml \
+    0x464e/traefik-opnsense-sync:latest
+```
+
+#### Docker Compose
+
+An example `docker-compose.yml` could look like:
+
+```yaml
+services:
+  traefik-opnsense-sync:
+    image: 0x464e/traefik-opnsense-sync:latest
+    # either specify config as env
+    environment:
+      - TOS_SYNC_DRY_RUN=true
+      - TOS_TRAEFIK_BASE_URL=https://traefik.mydomain.com
+      - TOS_TRAEFIK_INCLUDE_ENTRYPOINTS=lan-https
+      - TOS_TRAEFIK_IGNORE_ROUTERS=traefik-dashboard@file
+      - TOS_OPNSENSE_BASE_URL=https://192.168.10.1
+      - TOS_OPNSENSE_API_KEY=mykey
+      - TOS_OPNSENSE_API_SECRET=mysecret
+      - TOS_OPNSENSE_HOST_OVERRIDE=reverse-proxy.mydomain.com
+      - TOS_OPNSENSE_VERIFY_TLS=false
+# or you can mount a config file instead of env vars
+#    volumes:
+#       - /path/to/your/config.yml:/app/config.yml 
+```
 
 ## Configuration
 
-todo
+All config options are documented in the [`config.example.yml`](config.example.yml) file in the repository.  
+This section will document higher level concepts and important options.
+
+### Config File Location
+
+The application looks for a config file named `config.yml` or `config.yaml` in the current working directory by
+default.  
+If you want to use a different path for the config file, set environment variable `TOS_CONFIG` to the desired path.
+
+### Config Structure
+
+The config is structured into four main sections: `traefik`, `opnsense`, `regex`, and `sync`.
+
+- `traefik`: Configuration related to Traefik API access and filtering of routers
+- `opnsense`: Configuration related to OPNsense API access and DNS override management
+- `regex`: Configuration related to regex expansion (if used)
+- `sync`: Overall syncing behaviour configuration, such as dry-run or sync interval
+
+All config options can be set either via a YAML config file (default path `./config.yml`),
+or via environment variables (prefix `TOS_`, e.g. `TOS_SYNC_DRY_RUN`).
+A config entry such as `traefik.base_url` would be set via environment variable `TOS_TRAEFIK_BASE_URL`.
+
+If setting config via both config file and environment variables,
+environment variables will take precedence over config file values.
+
+### Config Syntax
+
+When using environment variables, arrays can be set via comma-separated values, e.g.
+`TOS_TRAEFIK_INCLUDE_ENTRYPOINTS="web,websecure"`.
+
+Time durations can be set via [Go duration strings](https://pkg.go.dev/time#ParseDuration),
+e.g. `5m`, `1h30m`, `45s`, etc.
+
+To avoid secrets in plain text, any config entry can also be set via a file.  
+Appending `_FILE` to any config entry name will make the application read the value from a file instead,
+e.g. `TOS_OPNSENSE_API_KEY_FILE=/path/to/apikey.txt`.  
+You can also use this for secrets mounted at runtime, e.g. Docker secrets pattern.
+
+### Required Config Entries
+
+At minimum, you need to set all the **required** config entries:
+
+- `traefik.base_url`: Base URL of your Traefik API (e.g. `https://traefik.mydomain.com`)
+- `opnsense.base_url`: Base URL of your OPNsense API (e.g. `https://192.168.10.1`)
+- `opnsense.api_key`: OPNsense API key (see [OPNsense API Access](#opnsense-api-access) section for instructions)
+- `opnsense.api_secret`: OPNsense API secret
+- `opnsense.host_override`: The existing OPNsense Unbound host override that all automatically managed aliases will
+  point to (see [Create Initial Reverse Proxy Host Override](#create-initial-reverse-proxy-host-override) section for
+  instructions)
+
+### Filtering Traefik Routers
+
+What's a Traefik router?  
+It's the reverse proxy rule that defines how Traefik should route requests.
+You can see all your Traefik routers from your Traefik dashboard.
+
+If you have a Traefik router for an app specified via a file config:
+
+```yaml
+http:
+  routers:
+    my-app:
+      rule: Host(`my-app.mydomain.com`)
+      entryPoints: [ "lan-https" ]
+      service: my-app-service
+```
+
+or via labels in a Docker container:
+
+```yaml
+labels:
+  - "traefik.http.routers.my-app.rule=Host(`my-app.mydomain.com`)"
+  - "traefik.http.routers.my-app.entrypoints=lan-https"
+```
+
+You can control which routers are considered for DNS override syncing with filters:
+
+* **By entrypoint(s)**: Include only routers on certain entrypoints.  
+  Example: `traefik.include_entrypoints: ["lan-https"]`  
+  Env: `TOS_TRAEFIK_INCLUDE_ENTRYPOINTS="lan-https,websecure"`
+* **By provider(s)**: Include or exclude by source (`file`, `docker`, etc.).  
+  Examples: `traefik.include_providers: ["file"]`, `traefik.ignore_providers: ["docker"]`
+* **By router name**: Ignore specific routers by their full name `<router>@<provider>`.  
+  Example: `traefik.ignore_routers: ["my-app@docker"]`  
+  Env: `TOS_TRAEFIK_IGNORE_ROUTERS="my-app@docker"`
 
 ## Common Issues
 
-todo  
-tls, traefik api access, non-sense dns overrides from traefik base redirect rule
+### TLS: Failed to verify certificate
+
+Since you want/need to access both Trefik/OPNsense directly bypassing your TLS termination,
+you may run into TLS certificate verification issues.
+Or perhaps you are using self-signed certificates.
+
+If you don't want to put the effort into fixing the TLS issues properly,
+or don't know how to, you can just disable TLS verification for both Traefik and OPNsense
+via config entries `traefik.verify_tls` and `opnsense.verify_tls`.
+
+### Unable to Access the Traefik API Before Creating DNS Override
+
+You have a chicken-and-egg problem with having a DNS override for Traefik:
+You need access to the Traefik API to run this app, but you also need a DNS override to securely
+and correctly route yourself to Traefik API.
+
+I have written more about this under prerequisites in the [Traefik API Access](#traefik-api-access) section.  
+TLDR: Just create one manual DNS override for Traefik and be done with it.
+
+### Nonsense DNS Overrides Being Created / Skipping Invalid Domain
+
+If you are using regex rules in your Traefik routers (e.g. `HostRegexp(...)`),
+you may run into issues where exrex generates nonsense domains that you don't want to create DNS overrides for.
+
+This is most likely caused be you having unbounded regexes that can match an infinite number of strings.  
+For example, the regex `.*\.mydomain\.com` can match anything before `.mydomain.com`, exrex will try to
+expand this out to all possible matching strings (count generated is limited by config entry `regex.max_generated`,
+default 5),
+but still, you will get 5 nonsense domains, like `!.mydomain.com`, `".mydomain.com`, etc.
+
+Please make your regex better, or if you truly need to use unbounded regexes that can expand to a very large number of
+strings,
+the whole concept of creating DNS overrides for them is not for you. You can exclude these specific routers from
+syncing. See [Filtering Traefik Routers](#filtering-traefik-routers) section for details.
+
+---
+
+If you see logs like:
+
+```
+2025/11/10 19:11:05 skipping invalid domain:  
+2025/11/10 19:11:05 skipping invalid domain: !
+2025/11/10 19:11:05 skipping invalid domain: "
+2025/11/10 19:11:05 skipping invalid domain: #
+2025/11/10 19:11:05 skipping invalid domain: $
+```
+
+where the domain is empty, you probably are using the default Traefik `redirections` method of redirecting all
+traffic from one entrypoint to another.  
+A common example being HTTP redirection to HTTPS:
+
+```yaml
+entryPoints:
+  http:
+    address: ":80"
+    http:
+      redirections:
+        entryPoint:
+          to: https
+          scheme: https
+  https:
+    address: ":443"
+```
+
+Under the hood, this is implemented as a router with rule ``HostRegexp(`^.+$`)``.  
+This will expand to an infinite number of strings, and exrex will generate (default 5) nonsense strings that are invalid
+domains.
+(First 5 printable ASCII characters)
+
+To solve this, you should probably use `traefik.include_entrypoints` so you always only explicitly include routers
+which are created on your specified entrypoints.
+
+Alternatively, you can just ignore the specific router that is causing this issue via `traefik.ignore_routers`.  
+The router name is auto-generated, you can check it from your Traefik dashboard, in the above example it should be
+`http-to-https@internal`.
 
 
 
@@ -242,3 +484,5 @@ tls, traefik api access, non-sense dns overrides from traefik base redirect rule
 [github-release-shield]: https://img.shields.io/github/v/release/0x464e/traefik-opnsense-sync?logo=github&sort=semver
 
 [github-release-url]: https://github.com/0x464e/traefik-opnsense-sync/releases
+
+[exrex-url]: https://pypi.org/project/exrex/
