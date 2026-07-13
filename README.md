@@ -24,6 +24,7 @@
 - [About The Project](#about-the-project)
 - [Features](#features)
     + [Traefik](#traefik)
+    + [Kubernetes](#kubernetes)
     + [OPNsense](#opnsense)
 - [Working Principle & Long Explanation](#working-principle--long-explanation)
     * [Example scenario](#example-scenario)
@@ -44,6 +45,7 @@
     * [Config Syntax](#config-syntax)
     * [Required Config Entries](#required-config-entries)
     * [Filtering Traefik Routers](#filtering-traefik-routers)
+    * [Filtering Kubernetes Resources](#filtering-kubernetes-resources)
 - [Common Issues](#common-issues)
     * [TLS: Failed to verify certificate](#tls-failed-to-verify-certificate)
     * [Unable to Access the Traefik API Before Creating DNS Override](#unable-to-access-the-traefik-api-before-creating-dns-override)
@@ -72,9 +74,10 @@ Home or Pi-Hole).
 
 ## Features
 
-- Sync once or run as a sync service that polls Traefik API at configurable intervals
+- Sync once or run as a sync service that polls the configured source at configurable intervals
 - Run as a native binary or Docker container (as a simple image or via Docker Compose)
 - Supports dry-runs (no changes made to OPNsense)
+- Two selectable hostname sources (`sync.source`): Traefik API, or Kubernetes cluster resources
 - Supports Traefik v3.x (maybe v2.x works? No idea)
 - Supports OPNsense Unbound (tested by me actively on v25.x and any future versions, don't know about older versions)
 
@@ -87,6 +90,17 @@ Home or Pi-Hole).
       ``(Host(`app.example.com`) || Host(`app2.example.com`)) && !Host(`app3.example.com`) && PathPrefix(`/prefix`)``)
 - Supports filtering out routers based on entrypoints, providers, and router names
 - Supports basic auth for secured Traefik APIs
+
+#### Kubernetes
+
+- Alternative to the Traefik source (`sync.source: kubernetes`) — reads hostnames directly from a
+  Kubernetes cluster instead of Traefik's API
+- Supports core `Ingress` (`spec.rules[].host`), Traefik `IngressRoute` CRDs
+  (`spec.routes[].match`, including the same `Host()`/`HostRegexp()` rule syntax and regex
+  expansion as the Traefik source), and Gateway API `HTTPRoute` (`spec.hostnames`)
+- Authenticates using the pod's in-cluster service account only (no kubeconfig support) — see
+  [`deploy/k8s/rbac-example.yaml`](deploy/k8s/rbac-example.yaml) for the minimum required RBAC
+- Supports filtering by namespace and by individual resource
 
 #### OPNsense
 
@@ -329,12 +343,17 @@ If you want to use a different path for the config file, set environment variabl
 
 ### Config Structure
 
-The config is structured into four main sections: `traefik`, `opnsense`, `regex`, and `sync`.
+The config is structured into five main sections: `traefik`, `kubernetes`, `opnsense`, `regex`, and
+`sync`.
 
-- `traefik`: Configuration related to Traefik API access and filtering of routers
+- `traefik`: Configuration related to Traefik API access and filtering of routers. Only used when
+  `sync.source` is `traefik` (the default).
+- `kubernetes`: Configuration related to which Kubernetes resources to scan and namespace/resource
+  filtering. Only used when `sync.source` is `kubernetes`.
 - `opnsense`: Configuration related to OPNsense API access and DNS override management
 - `regex`: Configuration related to regex expansion (if used)
-- `sync`: Overall syncing behaviour configuration, such as dry-run or sync interval
+- `sync`: Overall syncing behaviour configuration, such as source selection, dry-run, or sync
+  interval
 
 All config options can be set either via a YAML config file (default path `./config.yml`),
 or via environment variables (prefix `TOS_`, e.g. `TOS_SYNC_DRY_RUN`).
@@ -360,13 +379,18 @@ You can also use this for secrets mounted at runtime, e.g. Docker secrets patter
 
 At minimum, you need to set all the **required** config entries:
 
-- `traefik.base_url`: Base URL of your Traefik API (e.g. `https://traefik.mydomain.com`)
+- `traefik.base_url`: Base URL of your Traefik API (e.g. `https://traefik.mydomain.com`) — required
+  only when `sync.source` is `traefik` (the default)
 - `opnsense.base_url`: Base URL of your OPNsense API (e.g. `https://192.168.10.1`)
 - `opnsense.api_key`: OPNsense API key (see [OPNsense API Access](#opnsense-api-access) section for instructions)
 - `opnsense.api_secret`: OPNsense API secret
 - `opnsense.host_override`: The existing OPNsense Unbound host override that all automatically managed aliases will
   point to (see [Create Initial Reverse Proxy Host Override](#create-initial-reverse-proxy-host-override) section for
   instructions)
+
+If you set `sync.source: kubernetes`, `traefik.base_url` is not required, but the application must
+be running inside the target Kubernetes cluster with a service account granted the RBAC in
+[`deploy/k8s/rbac-example.yaml`](deploy/k8s/rbac-example.yaml).
 
 ### Filtering Traefik Routers
 
@@ -403,6 +427,24 @@ You can control which routers are considered for DNS override syncing with filte
 * **By router name**: Ignore specific routers by their full name `<router>@<provider>`.  
   Example: `traefik.ignore_routers: ["my-app@docker"]`  
   Env: `TOS_TRAEFIK_IGNORE_ROUTERS="my-app@docker"`
+
+### Filtering Kubernetes Resources
+
+When `sync.source: kubernetes` is set, hostnames come from `Ingress`, `IngressRoute`, and/or
+`HTTPRoute` resources instead. Pick which kinds to scan with `kubernetes.resources`
+(default: `["ingress"]`; `ingressroute` and `httproute` require the Traefik / Gateway API CRDs to
+be installed in the cluster).
+
+You can control which resources are considered for DNS override syncing with filters:
+
+* **By namespace**: Include or exclude by namespace. Mutually exclusive.  
+  Examples: `kubernetes.include_namespaces: ["default"]`, `kubernetes.ignore_namespaces: ["kube-system"]`
+* **By individual resource**: Ignore specific resources by `<name>.<namespace>@<kind>`.  
+  Example: `kubernetes.ignore_resources: ["my-app.default@ingress"]`
+
+See [`config.example.yml`](config.example.yml) for the full list of options, and
+[`deploy/k8s/rbac-example.yaml`](deploy/k8s/rbac-example.yaml) for the RBAC the service account
+needs — only grant rules for the resource kinds you actually enable.
 
 ## Common Issues
 
