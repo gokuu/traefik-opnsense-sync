@@ -4,14 +4,6 @@
     <h3>Automated synchronization of DNS overrides from Traefik reverse proxy entries</h3>
 </div>
 
-<div align='center'>
-
-[![Go Report Card][go-report-card-shield]][go-report-card-url]
-[![GitHub Release][github-release-shield]][github-release-url]
-[![discord][discord-shield]][discord-url]
-
-</div>
-
 ---
 
 ## Table of Contents
@@ -35,10 +27,10 @@
     * [Traefik API Access](#traefik-api-access)
     * [Exrex installation (for regex rule expansion, for non-docker installs, optional)](#exrex-installation-for-regex-rule-expansion-for-non-docker-installs-optional)
 - [Installation & Running](#installation--running)
-    * [Pre-Built Binary](#pre-built-binary)
     * [Docker](#docker)
         + [Simple Docker Run](#simple-docker-run)
         + [Docker Compose](#docker-compose)
+    * [Build From Source](#build-from-source)
 - [Configuration](#configuration)
     * [Config File Location](#config-file-location)
     * [Config Structure](#config-structure)
@@ -261,17 +253,7 @@ I can guarantee compatibility with version 0.12.0.
 
 ## Installation & Running
 
-You can either download a pre-built binary matching your OS and architecture from the releases page,
-run via Docker, or build from source.
-
-### Pre-Built Binary
-
-Head over to the [releases page][github-release-url] and download the appropriate binary for your system.
-
-You can run the binary directly (after ensuring you have set up configuration correctly,
-see [Configuration](#configuration) section below).
-Although if you plan to use this program as a service that continuously syncs at intervals,
-you probably want to set it up as a systemd service, or equivalent.
+You can either run via Docker, or build from source.
 
 ### Docker
 
@@ -295,7 +277,7 @@ docker run \
     -e TOS_OPNSENSE_API_SECRET=mysecret \
     -e TOS_OPNSENSE_HOST_OVERRIDE=reverse-proxy.mydomain.com \
     -e TOS_OPNSENSE_VERIFY_TLS=false \
-    0x464e/traefik-opnsense-sync:latest
+    docker.knifeinthesocket.com/influential-binary/opnsense-hosts-sync:latest
 ```
 
 or you can mount a config file into the container:
@@ -303,7 +285,7 @@ or you can mount a config file into the container:
 ```bash
 docker run \
     -v /path/to/your/config.yml:/app/config.yml \
-    0x464e/traefik-opnsense-sync:latest
+    docker.knifeinthesocket.com/influential-binary/opnsense-hosts-sync:latest
 ```
 
 #### Docker Compose
@@ -313,7 +295,7 @@ An example `docker-compose.yml` could look like:
 ```yaml
 services:
   traefik-opnsense-sync:
-    image: 0x464e/traefik-opnsense-sync:latest
+    image: docker.knifeinthesocket.com/influential-binary/opnsense-hosts-sync:latest
     # either specify config as env
     environment:
       - TOS_SYNC_DRY_RUN=true
@@ -329,6 +311,25 @@ services:
 #    volumes:
 #       - /path/to/your/config.yml:/app/config.yml 
 ```
+
+### Build From Source
+
+Requires Go 1.25+.
+
+```bash
+git clone https://git.knifeinthesocket.com/influential-binary/opnsense-hosts-sync.git
+cd opnsense-hosts-sync
+go build -o traefik-opnsense-sync ./cmd/traefik-opnsense-sync
+```
+
+You can then run the resulting binary directly (after ensuring you have set up configuration
+correctly, see [Configuration](#configuration) section below). If you plan to use this program as
+a service that continuously syncs at intervals, you probably want to set it up as a systemd
+service, or equivalent.
+
+If you need regex rule expansion (`HostRegexp(...)`) outside of Docker, also see the
+[Exrex installation](#exrex-installation-for-regex-rule-expansion-for-non-docker-installs-optional)
+section below.
 
 ## Configuration
 
@@ -527,17 +528,5 @@ The router name is auto-generated, you can check it from your Traefik dashboard,
 
 
 <!-- MARKDOWN LINKS & IMAGES -->
-
-[go-report-card-shield]: https://goreportcard.com/badge/github.com/0x464e/traefik-opnsense-sync
-
-[go-report-card-url]: https://goreportcard.com/report/github.com/0x464e/traefik-opnsense-sync
-
-[discord-shield]: https://img.shields.io/badge/Discord-join-738ad6?logo=discord&logoColor=white
-
-[discord-url]: https://discord.gg/SQCzaVeBTa
-
-[github-release-shield]: https://img.shields.io/github/v/release/0x464e/traefik-opnsense-sync?logo=github&sort=semver
-
-[github-release-url]: https://github.com/0x464e/traefik-opnsense-sync/releases
 
 [exrex-url]: https://pypi.org/project/exrex/

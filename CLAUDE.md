@@ -26,8 +26,9 @@ gofmt -w .                     # format
 ```
 
 Version metadata (`version`, `commit`, `date`, `builtBy` in `cmd/traefik-opnsense-sync/main.go`) is
-injected at release time by GoReleaser via `-X main.*` ldflags; a plain `go build` leaves the
-`"dev"`/`"unknown"` defaults. Run the binary with `-v`/`--version`/`version` to print it.
+injected at image-build time by the `builder` stage of `Dockerfile` via `-X main.*` ldflags (see
+`.forgejo/workflows/build-push.yml`); a plain `go build` leaves the `"dev"`/`"unknown"` defaults.
+Run the binary with `-v`/`--version`/`version` to print it.
 
 ## Running locally
 
@@ -136,15 +137,29 @@ Data flows in one direction each sync tick: **source (Traefik or Kubernetes, sel
   consuming component (usually `syncer.NewRunner`/`newEngine`, or `traefik.NewSource`/
   `kubernetes.NewSource` for source-specific fields), and document it in `config.example.yml`.
 
-## Docker builds
+## Docker build
 
-Two images: `Dockerfile` (distroless python base, bundles the `exrex` shim so `HostRegexp` works)
-and `Dockerfile-noregex` (distroless static, smaller, no regex expansion). Both expect a
-prebuilt `$TARGETPLATFORM/traefik-opnsense-sync` binary (produced by GoReleaser), not an in-Docker
-`go build`.
+Single image, `Dockerfile`: a `builder` stage does an in-container `go build` (ldflags-injected
+version metadata, see above), then a `runtime` stage (distroless python base, bundling the `exrex`
+shim so `HostRegexp` expansion works) copies in the compiled binary. There is no separate
+"noregex" variant and no dependency on a prebuilt binary from an external build tool — the image
+is fully self-contained.
 
 ## Releases
 
-Automated via release-please (`release-please-config.json`, Conventional Commits) and GoReleaser
-(`.goreleaser.yaml`) building `linux` amd64/arm64/arm v6/v7 with `CGO_ENABLED=0`. Use Conventional
-Commit messages (`fix:`, `feat:`, `docs:`, `chore:`) so changelog/versioning work.
+Hosted on a self-hosted Forgejo instance (`git.knifeinthesocket.com`) with Forgejo Actions
+(`.forgejo/workflows/`). There is no release-please equivalent (it's GitHub-API-specific with no
+Forgejo port), so versioning is manual and PR-driven:
+
+- Every PR uses `.forgejo/PULL_REQUEST_TEMPLATE.md`, which has a `## Release` section with a
+  `Version: vX.Y.Z` line (bumped by the author according to the change's semver impact) and a
+  `## Changelog` section (bullet points for the release notes).
+- Merging to `master` runs `.forgejo/workflows/build-push.yml`, which resolves the PR that
+  introduced the merge commit, extracts `Version`/`Changelog` from its body, builds and pushes the
+  Docker image (`docker.knifeinthesocket.com/influential-binary/opnsense-hosts-sync`, tagged both
+  `:vX.Y.Z` and `:latest`), creates the matching git tag, and creates the Forgejo release with the
+  extracted changelog as its notes. It comments the result back on the PR.
+- The workflow fails the build if `Version` is missing from the PR body, or if the tag already
+  exists — both are meant to catch a forgotten/duplicate version bump before it ships.
+
+`.forgejo/workflows/test.yml` runs `gofmt`/`go vet`/`go build`/`go test` on every pull request.
